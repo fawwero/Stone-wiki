@@ -1,0 +1,235 @@
+:root {
+  --accent: #f4a700;
+  --accent-dark: #cf8d00;
+  --bg: #ffffff;
+  --text: #111111;
+  --border: #ececec;
+  --muted: #6b6b6b;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  line-height: 1.55;
+}
+
+a { color: var(--text); text-decoration-color: var(--accent); text-decoration-thickness: 2px; }
+a:hover { color: var(--accent-dark); }
+
+header.site-header {
+  border-bottom: 3px solid var(--accent);
+  padding: 18px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+header.site-header .brand {
+  font-weight: 800;
+  font-size: 20px;
+  letter-spacing: -0.02em;
+  cursor: pointer;
+}
+
+header.site-header .brand span { color: var(--accent-dark); }
+
+main {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 32px 20px 80px;
+}
+
+.post-card {
+  display: block;
+  padding: 20px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.post-card h2 {
+  margin: 0 0 6px;
+  font-size: 22px;
+}
+
+.post-card .meta {
+  color: var(--muted);
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+
+.post-card .excerpt {
+  color: #333;
+  font-size: 15px;
+}
+
+.post-full h1 {
+  margin-top: 0;
+  font-size: 30px;
+}
+
+.post-full .meta {
+  color: var(--muted);
+  font-size: 13px;
+  margin-bottom: 24px;
+}
+
+.post-full img {
+  max-width: 100%;
+  border-radius: 4px;
+  display: block;
+  margin: 18px 0;
+}
+
+.post-full pre {
+  background: #f7f7f7;
+  padding: 14px;
+  overflow-x: auto;
+  border-left: 3px solid var(--accent);
+}
+
+.post-full code {
+  background: #f7f7f7;
+  padding: 2px 5px;
+  border-radius: 3px;
+  font-size: 0.9em;
+}
+
+.back-link {
+  display: inline-block;
+  margin-bottom: 20px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.btn {
+  background: var(--accent);
+  color: #111;
+  border: none;
+  padding: 9px 16px;
+  font-weight: 700;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.btn:hover { background: var(--accent-dark); }
+
+.btn.secondary {
+  background: transparent;
+  border: 1.5px solid var(--text);
+  color: var(--text);
+}
+
+.empty-state {
+  color: var(--muted);
+  padding: 40px 0;
+  text-align: center;
+}
+
+footer {
+  border-top: 1px solid var(--border);
+  padding: 24px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+footer .logo {
+  cursor: default;
+  user-select: none;
+  font-weight: 800;
+  color: var(--accent-dark);
+}
+
+/* ---- Editor ---- */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 40px 16px;
+  overflow-y: auto;
+  z-index: 50;
+}
+
+.modal {
+  background: #fff;
+  border-radius: 6px;
+  padding: 24px;
+  width: 100%;
+  max-width: 640px;
+  border-top: 4px solid var(--accent);
+}
+
+.modal h3 { margin-top: 0; }
+
+.field { margin-bottom: 14px; }
+.field label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 5px; }
+.field input[type=text], .field input[type=password] {
+  width: 100%;
+  padding: 9px 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 14px;
+}
+.field .hint { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+.modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 18px;
+}
+
+.editor-toolbar {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.editor-toolbar button {
+  background: #f4f4f4;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.editor-toolbar button:hover { background: #eee; }
+
+textarea#md-content {
+  width: 100%;
+  min-height: 320px;
+  padding: 12px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.status-line {
+  font-size: 13px;
+  margin-top: 10px;
+  min-height: 18px;
+}
+
+.status-line.error { color: #c0392b; }
+.status-line.ok { color: #1e8a3c; }
+
+.editor-fab {
+  position: fixed;
+  bottom: 22px;
+  right: 22px;
+  z-index: 40;
+}
