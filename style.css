@@ -26,7 +26,7 @@ a { color: inherit; text-decoration: none; }
 
 header.site-header {
   position: relative;
-  height: 92px;
+  height: 70px;
   background: #ffffff;
   overflow: hidden;
   display: flex;
