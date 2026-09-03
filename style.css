@@ -176,7 +176,17 @@ main {
 .post-full h3 { font-size: 18px; margin-top: 26px; }
 .post-full p { color: #d7deee; }
 .post-full a { color: var(--accent); text-decoration: underline; }
+.post-full strong { color: #ffffff; font-weight: 700; }
+.post-full em { color: #d7deee; font-style: italic; }
+
 .post-full ul, .post-full ol { color: #d7deee; padding-left: 22px; }
+.post-full li { margin-bottom: 6px; }
+.post-full li > ul, .post-full li > ol { margin-top: 6px; margin-bottom: 0; }
+
+/* разные маркеры для вложенных уровней списков — как в Ворде */
+.post-full ul { list-style-type: disc; }
+.post-full ul ul { list-style-type: circle; }
+.post-full ul ul ul { list-style-type: square; }
 .post-full blockquote {
   margin: 18px 0;
   padding: 4px 16px;
