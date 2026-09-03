@@ -7,9 +7,14 @@
 const POSTS_FILE = "posts.json";
 const UPLOADS_DIR = "uploads";
 const CFG_KEY = "editor_gh_config"; // { token, owner, repo, branch }
+const ICON_COLORS = ["#f4a700", "#ff2e8a", "#f4a700", "#f4a700"]; // цикл цветов иконок карточек
+
+if (window.marked) {
+  marked.setOptions({ gfm: true, breaks: false });
+}
 
 const app = document.getElementById("app");
-let CURRENT_POSTS = null; // кэш последнего чтения posts.json (для списка/чтения)
+let CURRENT_POSTS = null;
 
 /* ---------------- УТИЛИТЫ ---------------- */
 
@@ -26,11 +31,12 @@ function fmtDate(iso) {
   }
 }
 
-function excerpt(md, len = 160) {
+function excerpt(md, len = 110) {
   const plain = md
+    .replace(/```[\s\S]*?```/g, "")
     .replace(/!\[.*?\]\(.*?\)/g, "")
     .replace(/\[(.*?)\]\(.*?\)/g, "$1")
-    .replace(/[#>*`_-]/g, "")
+    .replace(/[#>*`_|-]/g, "")
     .replace(/\s+/g, " ")
     .trim();
   return plain.length > len ? plain.slice(0, len) + "…" : plain;
@@ -59,6 +65,12 @@ function setConfig(cfg) {
 
 function isEditor() {
   return !!getConfig();
+}
+
+function escapeHtml(str) {
+  const d = document.createElement("div");
+  d.textContent = str;
+  return d.innerHTML;
 }
 
 /* ---------------- РОУТИНГ ---------------- */
@@ -94,15 +106,22 @@ async function render() {
 
 function renderHome() {
   if (!CURRENT_POSTS.length) {
-    app.innerHTML = `<div class="empty-state">Постов пока нет. ${isEditor() ? "Нажми на кнопку внизу, чтобы написать первый." : ""}</div>`;
+    app.innerHTML = `<div class="empty-state">Постов пока нет.${isEditor() ? " Нажми на кнопку внизу, чтобы написать первый." : ""}</div>`;
     return;
   }
   const sorted = [...CURRENT_POSTS].sort((a, b) => new Date(b.date) - new Date(a.date));
-  app.innerHTML = sorted.map(p => `
+  app.innerHTML = sorted.map((p, i) => `
     <a class="post-card" href="#/${p.id}">
-      <h2>${escapeHtml(p.title)}</h2>
-      <div class="meta">#${p.id} · ${fmtDate(p.date)}</div>
-      <div class="excerpt">${escapeHtml(excerpt(p.content))}</div>
+      <div class="post-icon" style="background:${ICON_COLORS[i % ICON_COLORS.length]}">${escapeHtml((p.title || "?").trim()[0] || "?").toUpperCase()}</div>
+      <div class="post-body">
+        <h2>${escapeHtml(p.title)}</h2>
+        <div class="meta">#${p.id} · ${fmtDate(p.date)}</div>
+        <div class="excerpt">${escapeHtml(excerpt(p.content))}</div>
+      </div>
+      <div class="post-chevron">
+        <div class="arc"></div>
+        <div class="arrow">›</div>
+      </div>
     </a>
   `).join("");
 }
@@ -113,7 +132,7 @@ function renderPost(id) {
     app.innerHTML = `<div class="empty-state">Пост #${id} не найден.<br><a class="back-link" href="#/">&larr; На главную</a></div>`;
     return;
   }
-  const html = window.marked ? window.marked.parse(post.content) : escapeHtml(post.content);
+  const html = window.marked ? window.marked.parse(post.content) : `<pre>${escapeHtml(post.content)}</pre>`;
   app.innerHTML = `
     <a class="back-link" href="#/">&larr; Все посты</a>
     <article class="post-full">
@@ -122,12 +141,6 @@ function renderPost(id) {
       ${html}
     </article>
   `;
-}
-
-function escapeHtml(str) {
-  const d = document.createElement("div");
-  d.textContent = str;
-  return d.innerHTML;
 }
 
 /* ---------------- СЕКРЕТНЫЙ ВХОД В РЕДАКТОР ---------------- */
@@ -227,7 +240,7 @@ function openLoginModal() {
 async function testAccess(cfg) {
   try {
     const res = await ghRequest(cfg, `contents/${POSTS_FILE}`, { method: "GET" });
-    return res.status === 200 || res.status === 404; // 404 ок, если файла ещё нет
+    return res.status === 200 || res.status === 404;
   } catch (e) {
     return false;
   }
@@ -259,13 +272,12 @@ function renderEditorFab() {
   fab.querySelector("#fab-write").onclick = openPostEditor;
 }
 
-/* ---------------- РЕДАКТОР ПОСТА (markdown) ---------------- */
+/* ---------------- РЕДАКТОР ПОСТА (markdown, тулбар "как в Ворде") ---------------- */
 
 async function openPostEditor() {
   const cfg = getConfig();
   if (!cfg) return openLoginModal();
 
-  // получаем актуальный posts.json + sha, чтобы знать следующий id и суметь закоммитить
   let sha = null;
   let posts = [];
   try {
@@ -288,7 +300,7 @@ async function openPostEditor() {
   const overlay = document.createElement("div");
   overlay.className = "modal-overlay";
   overlay.innerHTML = `
-    <div class="modal" style="max-width:760px;">
+    <div class="modal" style="max-width:820px;">
       <h3>Новый пост · #${nextId}</h3>
       <div class="field">
         <label>Заголовок</label>
@@ -297,14 +309,27 @@ async function openPostEditor() {
       <div class="field">
         <label>Содержание (Markdown)</label>
         <div class="editor-toolbar">
-          <button type="button" data-wrap="**">Жирный</button>
-          <button type="button" data-wrap="*">Курсив</button>
-          <button type="button" data-prefix="## ">Заголовок</button>
-          <button type="button" data-prefix="- ">Список</button>
-          <button type="button" id="tb-link">Ссылка</button>
-          <button type="button" id="tb-image">🖼 Изображение</button>
+          <button type="button" data-h="1" title="Заголовок 1">H1</button>
+          <button type="button" data-h="2" title="Заголовок 2">H2</button>
+          <button type="button" data-h="3" title="Заголовок 3">H3</button>
+          <div class="tb-sep"></div>
+          <button type="button" data-wrap="**" title="Жирный"><b>Ж</b></button>
+          <button type="button" data-wrap="*" title="Курсив"><i>К</i></button>
+          <button type="button" data-wrap="~~" title="Зачёркнутый"><s>S</s></button>
+          <button type="button" data-wrap="\`" title="Код">&lt;/&gt;</button>
+          <div class="tb-sep"></div>
+          <button type="button" id="tb-ul" title="Маркированный список">• Список</button>
+          <button type="button" id="tb-ol" title="Нумерованный список">1. Список</button>
+          <button type="button" id="tb-indent" title="Отступ (Tab)">→ Отступ</button>
+          <button type="button" id="tb-outdent" title="Уменьшить отступ (Shift+Tab)">← Отступ</button>
+          <div class="tb-sep"></div>
+          <button type="button" id="tb-quote" title="Цитата">" Цитата</button>
+          <button type="button" id="tb-hr" title="Линия">— Линия</button>
+          <button type="button" id="tb-table" title="Таблица">▦ Таблица</button>
+          <button type="button" id="tb-link" title="Ссылка">🔗 Ссылка</button>
+          <button type="button" id="tb-image" title="Изображение">🖼 Изображение</button>
         </div>
-        <textarea id="md-content" placeholder="Пиши текст здесь. Курсор в тексте — это место, куда встанет картинка, если нажать «Изображение»."></textarea>
+        <textarea id="md-content" placeholder="Пиши текст здесь. Курсор в тексте — это место, куда встанет картинка или таблица."></textarea>
         <input type="file" id="img-input" accept="image/*" style="display:none">
       </div>
       <div class="status-line" id="editor-status"></div>
@@ -329,24 +354,49 @@ async function openPostEditor() {
     }
   };
 
-  // тулбар: обёртка выделенного текста (жирный/курсив)
+  /* ---- Tab / Shift+Tab внутри textarea = отступы, а не смена фокуса ---- */
+  textarea.addEventListener("keydown", (e) => {
+    if (e.key === "Tab") {
+      e.preventDefault();
+      indentLines(textarea, e.shiftKey ? -1 : 1);
+    }
+  });
+
+  /* ---- Заголовки H1-H3 ---- */
+  overlay.querySelectorAll("[data-h]").forEach(btn => {
+    btn.onclick = () => setHeading(textarea, parseInt(btn.dataset.h, 10));
+  });
+
+  /* ---- Обёртка выделения (жирный/курсив/зачёркнутый/код) ---- */
   overlay.querySelectorAll("[data-wrap]").forEach(btn => {
-    btn.onclick = () => {
-      const mark = btn.dataset.wrap;
-      wrapSelection(textarea, mark, mark);
-    };
+    btn.onclick = () => wrapSelection(textarea, btn.dataset.wrap, btn.dataset.wrap);
   });
-  // тулбар: префикс строки (заголовок/список)
-  overlay.querySelectorAll("[data-prefix]").forEach(btn => {
-    btn.onclick = () => insertAtCursor(textarea, btn.dataset.prefix);
-  });
+
+  overlay.querySelector("#tb-ul").onclick = () => toggleListPrefix(textarea, () => "- ");
+  let olCounter = 0;
+  overlay.querySelector("#tb-ol").onclick = () => {
+    olCounter = 0;
+    toggleListPrefix(textarea, () => { olCounter += 1; return `${olCounter}. `; });
+  };
+  overlay.querySelector("#tb-quote").onclick = () => toggleListPrefix(textarea, () => "> ");
+  overlay.querySelector("#tb-indent").onclick = () => indentLines(textarea, 1);
+  overlay.querySelector("#tb-outdent").onclick = () => indentLines(textarea, -1);
+
+  overlay.querySelector("#tb-hr").onclick = () => insertAtCursor(textarea, "\n\n---\n\n");
+
+  overlay.querySelector("#tb-table").onclick = () => {
+    const cols = parseInt(prompt("Сколько столбцов?", "3") || "3", 10) || 3;
+    const rows = parseInt(prompt("Сколько строк (без заголовка)?", "2") || "2", 10) || 2;
+    insertAtCursor(textarea, buildTableTemplate(cols, rows));
+  };
+
   overlay.querySelector("#tb-link").onclick = () => {
     const text = prompt("Текст ссылки:", "текст") || "текст";
     const url = prompt("URL:", "https://") || "";
     insertAtCursor(textarea, `[${text}](${url})`);
   };
 
-  // вставка изображения ИМЕННО в месте курсора
+  /* ---- вставка изображения именно в месте курсора ---- */
   const imgInput = overlay.querySelector("#img-input");
   overlay.querySelector("#tb-image").onclick = () => imgInput.click();
   imgInput.onchange = async () => {
@@ -419,6 +469,8 @@ async function openPostEditor() {
   };
 }
 
+/* ---------------- ПОМОЩНИКИ ТУЛБАРА ---------------- */
+
 function insertAtCursor(textarea, text) {
   const start = textarea.selectionStart;
   const end = textarea.selectionEnd;
@@ -438,6 +490,58 @@ function wrapSelection(textarea, before, after) {
   textarea.value = value.slice(0, start) + replacement + value.slice(end);
   textarea.focus();
   textarea.setSelectionRange(start + before.length, start + before.length + selected.length);
+}
+
+/* Возвращает {lineStart, lineEnd} — границы полных строк, покрывающих текущее выделение */
+function getLineRange(textarea) {
+  const value = textarea.value;
+  let start = textarea.selectionStart;
+  let end = textarea.selectionEnd;
+  while (start > 0 && value[start - 1] !== "\n") start--;
+  while (end < value.length && value[end] !== "\n") end++;
+  return { start, end };
+}
+
+/* Применяет функцию к каждой строке в выделении и заменяет их разом */
+function transformLines(textarea, fn) {
+  const { start, end } = getLineRange(textarea);
+  const value = textarea.value;
+  const block = value.slice(start, end);
+  const newBlock = block.split("\n").map(fn).join("\n");
+  textarea.value = value.slice(0, start) + newBlock + value.slice(end);
+  textarea.focus();
+  textarea.setSelectionRange(start, start + newBlock.length);
+}
+
+function setHeading(textarea, level) {
+  const prefix = "#".repeat(level) + " ";
+  transformLines(textarea, line => prefix + line.replace(/^#{1,6}\s+/, ""));
+}
+
+/* Список/цитата: если строка уже с этим типом префикса - снимаем, иначе ставим */
+function toggleListPrefix(textarea, prefixFn) {
+  transformLines(textarea, line => {
+    const stripped = line.replace(/^(-\s+|\d+\.\s+|>\s+)/, "");
+    if (line === stripped) {
+      return prefixFn() + stripped; // не было префикса - добавляем
+    }
+    return stripped; // был - снимаем (toggle off)
+  });
+}
+
+function indentLines(textarea, direction) {
+  transformLines(textarea, line => {
+    if (direction > 0) return "  " + line;
+    return line.replace(/^ {1,2}/, "");
+  });
+}
+
+function buildTableTemplate(cols, rows) {
+  const header = "| " + Array.from({ length: cols }, (_, i) => `Заголовок ${i + 1}`).join(" | ") + " |";
+  const sep = "| " + Array.from({ length: cols }, () => "---").join(" | ") + " |";
+  const row = "| " + Array.from({ length: cols }, () => "Ячейка").join(" | ") + " |";
+  const body = Array.from({ length: rows }, () => row).join("\n");
+  return `\n${header}\n${sep}\n${body}\n\n`;
 }
 
 function fileToBase64(file) {
