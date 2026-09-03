@@ -15,6 +15,7 @@ if (window.marked) {
 
 const app = document.getElementById("app");
 let CURRENT_POSTS = null;
+let EDITOR_BUSY = false; // true, пока открыт редактор или идёт публикация — защита от гонки при быстрой публикации нескольких постов
 
 /* ---------------- УТИЛИТЫ ---------------- */
 
@@ -278,6 +279,12 @@ async function openPostEditor() {
   const cfg = getConfig();
   if (!cfg) return openLoginModal();
 
+  if (EDITOR_BUSY) {
+    alert("Подожди: предыдущий пост ещё публикуется (или уже открыто окно редактора). Дождись сообщения «Опубликовано!» и попробуй снова — это защищает от сбоя, если публиковать посты слишком быстро одновременно.");
+    return;
+  }
+  EDITOR_BUSY = true;
+
   let sha = null;
   let posts = [];
   try {
@@ -291,6 +298,7 @@ async function openPostEditor() {
     }
   } catch (e) {
     alert("Не получилось прочитать posts.json: " + e.message);
+    EDITOR_BUSY = false;
     return;
   }
 
@@ -345,11 +353,12 @@ async function openPostEditor() {
   const textarea = overlay.querySelector("#md-content");
   const statusEl = overlay.querySelector("#editor-status");
 
-  overlay.querySelector("#ed-cancel").onclick = () => overlay.remove();
+  overlay.querySelector("#ed-cancel").onclick = () => { overlay.remove(); EDITOR_BUSY = false; };
   overlay.querySelector("#ed-logout").onclick = () => {
     if (confirm("Выйти из режима редактора на этом устройстве?")) {
       localStorage.removeItem(CFG_KEY);
       overlay.remove();
+      EDITOR_BUSY = false;
       renderEditorFab();
     }
   };
@@ -458,13 +467,15 @@ async function openPostEditor() {
       }
       statusEl.textContent = "Опубликовано! Сайт обновится в течение минуты.";
       statusEl.className = "status-line ok";
+      EDITOR_BUSY = false;
       setTimeout(() => {
         overlay.remove();
         location.hash = `#/${nextId}`;
       }, 900);
     } catch (e) {
-      statusEl.textContent = "Ошибка публикации: " + e.message;
+      statusEl.textContent = "Ошибка публикации: " + e.message + " — можно исправить и нажать «Опубликовать» ещё раз.";
       statusEl.className = "status-line error";
+      EDITOR_BUSY = false;
     }
   };
 }
