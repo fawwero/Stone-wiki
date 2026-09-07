@@ -236,6 +236,59 @@ main {
 .post-full th { background: var(--bg-elevated); color: var(--accent); }
 .post-full hr { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
 
+/* ---------------- СТИЛИ ДЛЯ ПРЕЗЕНТАЦИЙ ---------------- */
+
+.presentation-slider {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  margin: 24px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.presentation-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.presentation-icon {
+  font-size: 32px;
+  line-height: 1;
+}
+
+.presentation-name {
+  font-weight: 600;
+  color: var(--text);
+  font-size: 15px;
+}
+
+.presentation-controls {
+  display: flex;
+  gap: 8px;
+}
+
+.presentation-btn {
+  background: var(--accent);
+  color: #111;
+  border: none;
+  padding: 10px 16px;
+  font-weight: 700;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.presentation-btn:hover {
+  background: var(--accent-dark);
+}
+
 .back-link {
   display: inline-block;
   margin-bottom: 20px;
