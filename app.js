@@ -133,7 +133,23 @@ function renderPost(id) {
     app.innerHTML = `<div class="empty-state">Пост #${id} не найден.<br><a class="back-link" href="#/">&larr; На главную</a></div>`;
     return;
   }
-  const html = window.marked ? window.marked.parse(post.content) : `<pre>${escapeHtml(post.content)}</pre>`;
+  let html = window.marked ? window.marked.parse(post.content) : `<pre>${escapeHtml(post.content)}</pre>`;
+  // Обработка презентаций: {{presentation:path|filename}}
+  html = html.replace(/\{\{presentation:([^|]+)\|([^}]+)\}\}/g, (match, path, filename) => {
+    const presPath = path.trim();
+    const presName = filename.trim();
+    return `
+      <div class="presentation-slider" data-path="${presPath}" data-name="${presName}">
+        <div class="presentation-info">
+          <span class="presentation-icon">📊</span>
+          <span class="presentation-name">${escapeHtml(presName)}</span>
+        </div>
+        <div class="presentation-controls">
+          <button class="btn presentation-btn" onclick="downloadPresentation('${presPath}', '${presName}')">⬇ Скачать</button>
+        </div>
+      </div>
+    `;
+  });
   app.innerHTML = `
     <a class="back-link" href="#/">&larr; Все посты</a>
     <article class="post-full">
@@ -336,9 +352,11 @@ async function openPostEditor() {
           <button type="button" id="tb-table" title="Таблица">▦ Таблица</button>
           <button type="button" id="tb-link" title="Ссылка">🔗 Ссылка</button>
           <button type="button" id="tb-image" title="Изображение">🖼 Изображение</button>
+          <button type="button" id="tb-presentation" title="Презентация">📊 Презентация</button>
         </div>
         <textarea id="md-content" placeholder="Пиши текст здесь. Курсор в тексте — это место, куда встанет картинка или таблица."></textarea>
         <input type="file" id="img-input" accept="image/*" style="display:none">
+        <input type="file" id="pres-input" accept=".ppt,.pptx,.odp,.key" style="display:none">
       </div>
       <div class="status-line" id="editor-status"></div>
       <div class="modal-actions">
@@ -433,6 +451,38 @@ async function openPostEditor() {
       statusEl.className = "status-line ok";
     } catch (e) {
       statusEl.textContent = "Не получилось загрузить изображение: " + e.message;
+      statusEl.className = "status-line error";
+    }
+  };
+
+  /* ---- вставка презентации именно в месте курсора ---- */
+  const presInput = overlay.querySelector("#pres-input");
+  overlay.querySelector("#tb-presentation").onclick = () => presInput.click();
+  presInput.onchange = async () => {
+    const file = presInput.files[0];
+    if (!file) return;
+    presInput.value = "";
+    statusEl.textContent = "Загружаю презентацию...";
+    statusEl.className = "status-line";
+    try {
+      const ext = (file.name.split(".").pop() || "pptx").toLowerCase();
+      imgCounter += 1;
+      const path = `${UPLOADS_DIR}/${nextId}-pres-${imgCounter}.${ext}`;
+      const base64 = await fileToBase64(file);
+      const putRes = await ghRequest(cfg, `contents/${path}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          message: `upload presentation for post #${nextId}`,
+          content: base64,
+          branch: cfg.branch
+        })
+      });
+      if (!putRes.ok) throw new Error("GitHub API: " + putRes.status);
+      insertAtCursor(textarea, `\n{{presentation:${path}|${file.name}}}\n`);
+      statusEl.textContent = "Презентация вставлена.";
+      statusEl.className = "status-line ok";
+    } catch (e) {
+      statusEl.textContent = "Не получилось загрузить презентацию: " + e.message;
       statusEl.className = "status-line error";
     }
   };
@@ -562,4 +612,24 @@ function fileToBase64(file) {
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
+}
+
+/* ---------------- СКАЧИВАНИЕ ПРЕЗЕНТАЦИЙ ---------------- */
+
+async function downloadPresentation(path, filename) {
+  try {
+    // Получаем файл из GitHub через raw URL или API
+    const rawUrl = `https://raw.githubusercontent.com/${getConfig().owner}/${getConfig().repo}/${getConfig().branch}/${path}`;
+    
+    // Создаём временную ссылку для скачивания
+    const link = document.createElement('a');
+    link.href = rawUrl;
+    link.download = filename;
+    link.target = '_blank';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  } catch (e) {
+    alert('Не удалось скачать презентацию: ' + e.message);
+  }
 }
