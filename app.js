@@ -133,7 +133,26 @@ function renderPost(id) {
     app.innerHTML = `<div class="empty-state">Пост #${id} не найден.<br><a class="back-link" href="#/">&larr; На главную</a></div>`;
     return;
   }
-  let html = window.marked ? window.marked.parse(post.content) : `<pre>${escapeHtml(post.content)}</pre>`;
+  // Формулы $...$ / $$...$$ прячем в плейсхолдеры ДО marked.parse,
+  // иначе markdown ломает \begin{...}, подчёркивания и звёздочки внутри LaTeX.
+  const mathBlocks = [];
+  let rawContent = post.content.replace(/\$\$([\s\S]+?)\$\$|\$([^\n$]+?)\$/g, (match, block, inline) => {
+    const idx = mathBlocks.length;
+    mathBlocks.push({ tex: block !== undefined ? block : inline, display: block !== undefined });
+    return `%%MATH_${idx}%%`;
+  });
+
+  let html = window.marked ? window.marked.parse(rawContent) : `<pre>${escapeHtml(rawContent)}</pre>`;
+
+  // Возвращаем формулы обратно — уже после markdown, целыми, без искажений
+  html = html.replace(/%%MATH_(\d+)%%/g, (match, idx) => {
+    const m = mathBlocks[Number(idx)];
+    if (!m) return match;
+    const tag = m.display ? "div" : "span";
+    const cls = m.display ? "math-block" : "math-inline";
+    return `<${tag} class="${cls}" data-tex="${escapeHtml(m.tex)}"></${tag}>`;
+  });
+
   // Обработка презентаций: {{presentation:path|filename}}
   html = html.replace(/\{\{presentation:([^|]+)\|([^}]+)\}\}/g, (match, path, filename) => {
     const presPath = path.trim();
@@ -158,6 +177,20 @@ function renderPost(id) {
       ${html}
     </article>
   `;
+  renderMath();
+}
+
+/* Рендерит все плейсхолдеры формул через KaTeX (после вставки в DOM) */
+function renderMath() {
+  if (!window.katex) return;
+  document.querySelectorAll(".math-block, .math-inline").forEach(el => {
+    const tex = el.getAttribute("data-tex");
+    try {
+      katex.render(tex, el, { displayMode: el.classList.contains("math-block"), throwOnError: false });
+    } catch (e) {
+      el.textContent = tex; // если формула кривая — покажем как есть, а не сломаем страницу
+    }
+  });
 }
 
 /* ---------------- СЕКРЕТНЫЙ ВХОД В РЕДАКТОР ---------------- */
@@ -618,18 +651,22 @@ function fileToBase64(file) {
 
 async function downloadPresentation(path, filename) {
   try {
-    // Получаем файл из GitHub через raw URL или API
-    const rawUrl = `https://raw.githubusercontent.com/${getConfig().owner}/${getConfig().repo}/${getConfig().branch}/${path}`;
-    
-    // Создаём временную ссылку для скачивания
-    const link = document.createElement('a');
-    link.href = rawUrl;
+    // path относительный (uploads/...), файл лежит в том же репо что и сайт —
+    // просто fetch по этому же адресу, GitHub API/токен не нужны.
+    const res = await fetch(path);
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const blob = await res.blob();
+    // download-атрибут не работает на кросс-доменных/inline-ссылках,
+    // поэтому скачиваем через blob-URL — так браузер гарантированно сохранит файл.
+    const blobUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = blobUrl;
     link.download = filename;
-    link.target = '_blank';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(blobUrl);
   } catch (e) {
-    alert('Не удалось скачать презентацию: ' + e.message);
+    alert("Не удалось скачать презентацию: " + e.message);
   }
 }
