@@ -236,6 +236,14 @@ main {
 .post-full th { background: var(--bg-elevated); color: var(--accent); }
 .post-full hr { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
 
+.math-block {
+  overflow-x: auto;
+  margin: 20px 0;
+  padding: 4px 0;
+}
+.math-inline { display: inline-block; }
+.post-full .katex { color: var(--text); font-size: 1.05em; }
+
 /* ---------------- СТИЛИ ДЛЯ ПРЕЗЕНТАЦИЙ ---------------- */
 
 .presentation-slider {
