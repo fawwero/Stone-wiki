@@ -244,6 +244,69 @@ main {
 .math-inline { display: inline-block; }
 .post-full .katex { color: var(--text); font-size: 1.05em; }
 
+/* ---------------- ОВЕРЛЕЙ СКАЧИВАНИЯ ---------------- */
+
+.dl-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 60;
+  padding: 16px;
+}
+
+.dl-box {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-top: 4px solid var(--accent);
+  border-radius: 16px;
+  padding: 24px;
+  width: 100%;
+  max-width: 360px;
+  text-align: center;
+}
+
+.dl-title {
+  font-weight: 700;
+  font-size: 15px;
+  margin-bottom: 16px;
+  color: var(--text);
+  word-break: break-word;
+}
+
+.dl-bar {
+  height: 10px;
+  border-radius: 999px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+
+.dl-bar-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--accent), var(--accent2));
+  transition: width 0.3s ease;
+}
+
+.dl-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  color: var(--muted);
+  gap: 8px;
+}
+
+.dl-percent {
+  flex: none;
+  color: var(--accent);
+  font-weight: 700;
+}
+
 /* ---------------- СТИЛИ ДЛЯ ПРЕЗЕНТАЦИЙ ---------------- */
 
 .presentation-slider {
