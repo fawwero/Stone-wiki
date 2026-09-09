@@ -164,7 +164,7 @@ function renderPost(id) {
           <span class="presentation-name">${escapeHtml(presName)}</span>
         </div>
         <div class="presentation-controls">
-          <button class="btn presentation-btn" onclick="downloadPresentation('${presPath}', '${presName}')">⬇ Скачать</button>
+          <button class="btn presentation-btn" onclick="downloadPresentation('${presPath}', '${presName}', this)">⬇ Скачать</button>
         </div>
       </div>
     `;
@@ -649,15 +649,41 @@ function fileToBase64(file) {
 
 /* ---------------- СКАЧИВАНИЕ ПРЕЗЕНТАЦИЙ ---------------- */
 
-async function downloadPresentation(path, filename) {
+async function downloadPresentation(path, filename, btn) {
+  const originalHtml = btn ? btn.innerHTML : null;
+  const overlay = createDownloadOverlay(filename);
+  document.body.appendChild(overlay);
+  if (btn) btn.disabled = true;
+
+  const phraseTimer = startFunPhrases(overlay.querySelector(".dl-phrase"));
+
   try {
-    // path относительный (uploads/...), файл лежит в том же репо что и сайт —
-    // просто fetch по этому же адресу, GitHub API/токен не нужны.
     const res = await fetch(path);
     if (!res.ok) throw new Error("HTTP " + res.status);
-    const blob = await res.blob();
-    // download-атрибут не работает на кросс-доменных/inline-ссылках,
-    // поэтому скачиваем через blob-URL — так браузер гарантированно сохранит файл.
+
+    const total = Number(res.headers.get("Content-Length")) || 0;
+    const reader = res.body ? res.body.getReader() : null;
+    const chunks = [];
+    let loaded = 0;
+
+    if (reader) {
+      // читаем поток по кускам, чтобы показывать реальный прогресс, а не гадать
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        loaded += value.length;
+        if (total) {
+          const pct = Math.min(100, Math.round((loaded / total) * 100));
+          overlay.querySelector(".dl-bar-fill").style.width = pct + "%";
+          overlay.querySelector(".dl-percent").textContent = pct + "%";
+        } else {
+          overlay.querySelector(".dl-percent").textContent = fmtBytes(loaded);
+        }
+      }
+    }
+
+    const blob = chunks.length ? new Blob(chunks) : await res.blob();
     const blobUrl = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = blobUrl;
@@ -668,5 +694,54 @@ async function downloadPresentation(path, filename) {
     URL.revokeObjectURL(blobUrl);
   } catch (e) {
     alert("Не удалось скачать презентацию: " + e.message);
+  } finally {
+    clearInterval(phraseTimer);
+    overlay.remove();
+    if (btn) { btn.disabled = false; btn.innerHTML = originalHtml; }
   }
+}
+
+/* Оверлей с прогресс-баром и бегущими фразами на время скачивания большого файла */
+function createDownloadOverlay(filename) {
+  const overlay = document.createElement("div");
+  overlay.className = "dl-overlay";
+  overlay.innerHTML = `
+    <div class="dl-box">
+      <div class="dl-title">Скачиваю «${escapeHtml(filename)}»…</div>
+      <div class="dl-bar"><div class="dl-bar-fill"></div></div>
+      <div class="dl-row">
+        <span class="dl-phrase">Готовим файл...</span>
+        <span class="dl-percent"></span>
+      </div>
+    </div>
+  `;
+  return overlay;
+}
+
+const FUN_PHRASES = [
+  "Это не так просто...",
+  "Горные гномы трудятся изо всех сил",
+  "Уговариваем биты выстроиться в ряд",
+  "Почти получилось (наверное)",
+  "Сервер немного подзадумался",
+  "Считаем мегабайты по одному",
+  "Ещё чуть-чуть, честно",
+  "Будим интернет-провайдера",
+  "Пакеты данных встали в очередь",
+  "Кто-то там жарит попкорн, подождите"
+];
+
+/* Каждые 2.5 сек меняет фразу под прогресс-баром, чтобы ожидание не казалось зависанием */
+function startFunPhrases(el) {
+  let i = 0;
+  return setInterval(() => {
+    i = (i + 1) % FUN_PHRASES.length;
+    el.textContent = FUN_PHRASES[i];
+  }, 2500);
+}
+
+function fmtBytes(bytes) {
+  if (bytes < 1024) return bytes + " Б";
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(0) + " КБ";
+  return (bytes / (1024 * 1024)).toFixed(1) + " МБ";
 }
